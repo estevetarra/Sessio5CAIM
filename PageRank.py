@@ -110,6 +110,8 @@ def computePageRanks():
 def outputPageRanks(pageranks):
     sorted_pageranks = sorted(pageranks.items(), key=operator.itemgetter(1), reverse = True)
     print_list = [(pagerank, airportHash[code].name) for code, pagerank in sorted_pageranks]
+    with open('pagerank_output.txt', 'w') as fp:
+        fp.write('\n'.join('%s %s' % x for x in print_list)) 
     return print_list 
 
 
