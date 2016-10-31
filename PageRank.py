@@ -4,6 +4,7 @@ from collections import namedtuple
 import operator
 import time
 import sys
+import math
 
 class Airport:
     def __init__ (self, iden=None, name=None):
@@ -82,8 +83,9 @@ def computePageRanks():
     num_airports_outweight_0 = 0
     for airport_name, airport in airportHash.iteritems():
         if airport.outweight == 0:
-            num_airports_outweight_0 += 1 
-    while i < 4:
+            num_airports_outweight_0 += 1
+    difference = float('Inf')
+    while difference > 1e-5:
         Q = {airport_name: 0.0 for airport_name in airportHash}
         extra = 0.0
         for destin in airportHash:
@@ -96,10 +98,11 @@ def computePageRanks():
             
             Q[destin] += (1-L)/n
         Q = {destin: score + extra for destin, score in Q.iteritems()}
-        suma = 0.0
-        for k,v in Q.iteritems():
-            suma += v
-        print suma
+        difference = math.sqrt(sum([(Q[airport_name]-P[airport_name])**2 for airport_name in Q]))
+        # suma = 0.0
+        # for k,v in Q.iteritems():
+        #     suma += v
+        # print suma
         P = Q
         i += 1
     return (i, P)
