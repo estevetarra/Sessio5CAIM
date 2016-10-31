@@ -1,18 +1,9 @@
 #!/usr/bin/python
 
 from collections import namedtuple
+import operator
 import time
 import sys
-
-class Edge:
-    def __init__ (self, origin=None):
-        self.origin = origin # write appropriate value
-        self.weight = 1 # write appropriate value
-
-    def __repr__(self):
-        return "edge: {0} {1}".format(self.origin, self.weight)
-        
-    ## write rest of code that you need for this class
 
 class Airport:
     def __init__ (self, iden=None, name=None):
@@ -20,15 +11,12 @@ class Airport:
         self.name = name
         self.routes = [] #vector of edges
         self.routeHash = dict()
-        self.outweight =  -1  # write appropriate value
-	self.pageIndex = -1
+        self.outweight =  0 
 
     def __repr__(self):
         return "{0}\t{2}\t{1}".format(self.code, self.name, self.pageIndex)
 
-edgeList = [] # list of Edge
 edgeHash = dict() # hash of edge to ease the match
-airportList = [] # list of Airport
 airportHash = dict() # hash key IATA code -> Airport
 
 def readAirports(fd):
@@ -38,8 +26,8 @@ def readAirports(fd):
     for line in airportsTxt.readlines():
         a = Airport()
         try:
-	    temp = line.split(',')
-            if len(temp[4]) != 5 :
+            temp = line.split(',')
+            if len(temp[4]) != 5:
                 raise Exception('not an IATA code')            
             a.name=temp[1][1:-1] + ", " + temp[3][1:-1]
             a.code=temp[4][1:-1]
@@ -48,7 +36,6 @@ def readAirports(fd):
         else:
             cont += 1
             #print a
-            airportList.append(a)
             airportHash[a.code] = a
     airportsTxt.close()
     print "There were {0} Airports with IATA code".format(cont)
@@ -60,44 +47,79 @@ def readRoutes(fd):
     cont = 0
     for line in routesTxt.readlines():
         try:
-	    temp = line.split(',')
-	    if len(temp[2]) != 3 or len(temp[4]) != 3:
+    	    temp = line.split(',')
+    	    if len(temp[2]) != 3 or len(temp[4]) != 3:
                 raise Exception('not an IATA code')            
             origin = temp[2]
             destin = temp[4]
-            e = Edge(origin)
-            print airportHash[destin].routes
-            
-            #r.name=temp[1][1:-1] + ", " + temp[3][1:-1]
-            #r.code=temp[4][1:-1]
         except Exception as inst:
-	    print "Exeption"
+            print "Exception"
             pass
         else:
-            cont += 1
-            #edgeList.append(r)
-            #airportHash[r.code] = r
+            if destin in airportHash and origin in airportHash:
+                cont += 1
+                if not destin in edgeHash:
+                    edgeHash[destin] = {}
+                    edgeHash[destin][origin] = 1
+                elif not origin in edgeHash[destin]:
+                    edgeHash[destin][origin] = 1
+                else:
+                    edgeHash[destin][origin] += 1
+                airportHash[origin].outweight += 1
+            else:
+                # Origin or destination airport in the route was not in the airports file one. 
+                # It is ok to get rid of this route.
+                pass
     routesTxt.close()
     print "There were {0} valid edges ".format(cont)
-    # write your code
 
 def computePageRanks():
-    return 0
-    # write your code
+    n = len(airportHash)
+    P = {airport_name: 1.0/n for airport_name in airportHash}
+    L = 0.8
+    i = 0
+    # extra contribution to each position of P due to airports with outweight 0.
+    num_airports_outweight_0 = 0
+    for airport_name, airport in airportHash.iteritems():
+        if airport.outweight == 0:
+            num_airports_outweight_0 += 1 
+    while i < 4:
+        Q = {airport_name: 0.0 for airport_name in airportHash}
+        extra = 0.0
+        for destin in airportHash:
+            if airportHash[destin].outweight == 0:
+                extra += P[destin]*L*1.0/n
+            if destin in edgeHash: 
+                # current airport has incoming routes
+                for origin, weight in edgeHash[destin].iteritems():
+                    Q[destin] += L*P[origin]*weight/airportHash[origin].outweight
+            
+            Q[destin] += (1-L)/n
+        Q = {destin: score + extra for destin, score in Q.iteritems()}
+        suma = 0.0
+        for k,v in Q.iteritems():
+            suma += v
+        print suma
+        P = Q
+        i += 1
+    return (i, P)
 
-def outputPageRanks():
-    return 0
-    # write your code
+def outputPageRanks(pageranks):
+    sorted_pageranks = sorted(pageranks.items(), key=operator.itemgetter(1), reverse = True)
+    print_list = [(pagerank, airportHash[code].name) for code, pagerank in sorted_pageranks]
+    return print_list 
+
 
 def main(argv=None):
     readAirports("airports.txt")
     readRoutes("routes.txt")
     time1 = time.time()
-    iterations = computePageRanks()
+    iterations, pageranks = computePageRanks()
     time2 = time.time()
-    #outputPageRanks()
+    print_list = outputPageRanks(pageranks)
     print "#Iterations:", iterations
     print "Time of computePageRanks():", time2-time1
+    print "Final Pagerank: ", print_list[1:20]
 
 
 if __name__ == "__main__":
